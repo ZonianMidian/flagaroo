@@ -410,7 +410,7 @@
 					class:success={guessedCountries.includes(countryCode)}
 					class:failure={false}>
 					<div class="flag-container">
-						<img src={`/flags/${countryCode}.svg`} alt={countryCode} class="flag" />
+						<img src={`/flags/${countryCode}.svg`} alt={countryCode} loading="lazy" class="flag" />
 					</div>
 					<input
 						type="text"
