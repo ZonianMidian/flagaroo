@@ -1,0 +1,32 @@
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 100 1000;
+	src: url('./lib/fonts/Outfit.woff2') format('woff2');
+}
+
+:root {
+	font-family: 'Outfit', sans-serif !important;
+	background-color: #1a1a1a;
+	color: #e0e0e0;
+	margin: 0;
+}
+
+/* Scrollbar */
+html,
+body {
+	overflow: auto;
+	margin: 0;
+}
+
+body::-webkit-scrollbar {
+	display: none;
+}
+
+html {
+	scrollbar-width: none;
+}
+
+body {
+	-ms-overflow-style: none;
+}

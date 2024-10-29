@@ -1,0 +1,14 @@
+{
+	"us": {
+		"name": [{ "key": "en", "value": "United States of America" }]
+	},
+	"bh": {
+		"name": [{ "key": "es", "value": "Baréin" }]
+	},
+	"gv": {
+		"code": "gn"
+	},
+	"pu": {
+		"code": "gw"
+	}
+}

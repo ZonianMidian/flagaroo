@@ -1,0 +1,647 @@
+<script lang="ts">
+	import { getLocaleFromNavigator, t } from 'svelte-i18n';
+	import { checkMatch, formatTime } from '$utils/utils';
+	import { effectSounds } from '$utils/soundEffects';
+	import Spinner from '$components/Spinner.svelte';
+	import { onMount } from 'svelte';
+	import '../app.css';
+
+	type LanguageData = {
+		[key: string]: string;
+	};
+
+	type CountryData = {
+		name: { [key: string]: string };
+		alt: string[];
+	};
+
+	type Category = {
+		[key: string]: string[];
+	};
+
+	let categories: Record<string, Category> = {};
+	let countries: Record<string, CountryData> = {};
+	let timer: ReturnType<typeof setInterval> | null = null;
+	let actualTime: number = 0;
+	let timeLimit: number = 60;
+	let guessedCountries: string[] = [];
+	let totalCountries: number = 0;
+	let languageData: LanguageData = {};
+	let currentLang: string = 'en';
+	let gameStarted: boolean = false;
+	let filteredCountries: string[] = [];
+	let percentages: { [key: string]: string } = {};
+	let isStopEnabled: boolean = false;
+	let isStartEnabled: boolean = true;
+	let isLoading: boolean = true;
+
+	//Options
+	let selectedCategory: string = 'All';
+	let mode: string = 'Classic';
+
+	let showPercentagePerTry: boolean = false;
+	let showPercentageAtEnd: boolean = false;
+	let showAnswersAtEnd: boolean = false;
+	let playSoundEffects: boolean = true;
+
+	async function loadCategoriesAndCountries() {
+		const categoriesFiles = import.meta.glob<{ default: Category }>('$data/categories/*.json');
+		for (const path in categoriesFiles) {
+			const module = await categoriesFiles[path]();
+			const categoryName = path.split('/').pop()?.replace('.json', '') || '';
+			categories[categoryName] = module.default;
+		}
+
+		const countriesFiles = import.meta.glob<{ default: CountryData }>('$data/names/*.json');
+		for (const path in countriesFiles) {
+			const module = await countriesFiles[path]();
+			const countryCode = path.split('/').pop()?.replace('.json', '') || '';
+			countries[countryCode] = module.default;
+		}
+
+		totalCountries = Object.keys(countries).length;
+		shuffleCountries();
+		isLoading = false;
+	}
+
+	async function loadLanguage() {
+		currentLang = getLocaleFromNavigator() ?? 'en';
+		const langFile = await import(`$data/languages/${currentLang}.json`);
+		languageData = langFile.default;
+	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		if (event.shiftKey) {
+			switch (event.key.toLowerCase()) {
+				case 's':
+					if (isStartEnabled) startGame();
+					break;
+				case 'p':
+					if (isStopEnabled) stopGame();
+					break;
+				case 'r':
+					restartGame();
+					break;
+			}
+		}
+	}
+
+	onMount(() => {
+		loadCategoriesAndCountries();
+		effectSounds.preload();
+		loadLanguage();
+
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	});
+
+	function shuffleCountries() {
+		filteredCountries =
+			selectedCategory === 'All'
+				? Object.keys(countries)
+				: Object.values(categories).flatMap((cat) => cat[selectedCategory] || []);
+		filteredCountries = filteredCountries.sort(() => Math.random() - 0.5);
+	}
+
+	function startGame() {
+		gameStarted = true;
+		isStopEnabled = true;
+		isStartEnabled = false;
+
+		if (mode === 'Timer') {
+			const selectElement = document.getElementById('time') as HTMLSelectElement;
+			timeLimit = +selectElement?.value || 0;
+			startTimer(timeLimit);
+		} else {
+			startTimer(0);
+		}
+
+		disableControls(true);
+		enableAllInputs();
+	}
+
+	function startTimer(time: number) {
+		actualTime = time;
+		timer = setInterval(() => {
+			if (mode === 'Timer') {
+				actualTime--;
+			} else {
+				actualTime++;
+			}
+
+			if (actualTime <= 0) {
+				clearInterval(timer!);
+				endGame();
+			}
+		}, 1000);
+	}
+
+	function endGame() {
+		gameStarted = false;
+		isStopEnabled = false;
+		isStartEnabled = false;
+		if (timer) clearInterval(timer);
+		if (showAnswersAtEnd) revealAllCountries();
+		if (showPercentageAtEnd) showAllPercentages();
+		disableControls(false);
+		disableStartButton(true);
+
+		if (playSoundEffects && mode === 'Timer' && guessedCountries.length > 0) {
+			if (guessedCountries.length === filteredCountries.length) {
+				effectSounds.play('win');
+			} else {
+				effectSounds.play('lose');
+			}
+		}
+	}
+
+	function stopGame() {
+		endGame();
+		disableStartButton(true);
+	}
+
+	function restartGame() {
+		guessedCountries = [];
+		percentages = {};
+		actualTime = 0;
+
+		if (gameStarted) {
+			endGame();
+
+			clearAllInputs();
+			shuffleCountries();
+
+			startGame();
+		} else {
+			gameStarted = false;
+			isStopEnabled = false;
+			isStartEnabled = true;
+			if (timer) clearInterval(timer);
+			clearAllInputs();
+			shuffleCountries();
+			disableControls(false);
+			disableStartButton(false);
+		}
+	}
+
+	function disableControls(disable: boolean) {
+		const controls = document.querySelectorAll('.game-control') as NodeListOf<
+			HTMLInputElement | HTMLSelectElement
+		>;
+		controls.forEach((control) => {
+			control.disabled = disable;
+		});
+	}
+
+	function disableStartButton(disable: boolean) {
+		const startButton = document.querySelector('#start-button') as HTMLButtonElement;
+		if (startButton) {
+			startButton.disabled = disable;
+		}
+	}
+
+	function enableAllInputs() {
+		const inputs = document.querySelectorAll('.country-input') as NodeListOf<HTMLInputElement>;
+		inputs.forEach((input) => {
+			input.disabled = false;
+		});
+	}
+
+	function revealAllCountries() {
+		const inputs = document.querySelectorAll('.country-input') as NodeListOf<HTMLInputElement>;
+		inputs.forEach((input) => {
+			const countryCode = input.getAttribute('data-country-code');
+			if (countryCode && countries[countryCode]) {
+				input.value = countries[countryCode].name[currentLang] || '';
+				input.disabled = true;
+			}
+		});
+	}
+
+	function showAllPercentages() {
+		const percentageElements = document.querySelectorAll(
+			'.percentage'
+		) as NodeListOf<HTMLDivElement>;
+		percentageElements.forEach((percentageElement) => {
+			const countryCode = percentageElement.parentElement
+				?.querySelector('.country-input')
+				?.getAttribute('data-country-code');
+			if (countryCode) {
+				percentageElement.textContent = percentages[countryCode] || '';
+				percentageElement.style.visibility = 'visible';
+			}
+		});
+	}
+
+	function clearAllInputs() {
+		const inputs = document.querySelectorAll('.country-input') as NodeListOf<HTMLInputElement>;
+		inputs.forEach((input) => {
+			input.value = '';
+			input.disabled = true;
+			input.parentElement!.classList.remove('success', 'failure');
+		});
+		const percentages = document.querySelectorAll('.percentage') as NodeListOf<HTMLDivElement>;
+		percentages.forEach((percentage) => {
+			percentage.textContent = '';
+			percentage.style.visibility = 'hidden';
+		});
+	}
+
+	function checkAnswer(event: KeyboardEvent, countryCode: string) {
+		if (event.key === 'Enter' && gameStarted) {
+			const inputElement = event.target as HTMLInputElement;
+			const inputValue = inputElement.value;
+			const country = countries[countryCode];
+			if (country) {
+				const result = checkMatch(country, currentLang, inputValue);
+
+				if (result.success) {
+					guessedCountries = [...guessedCountries, countryCode];
+					inputElement.disabled = true;
+					inputElement.value = country.name[currentLang] || '';
+					animateSuccess(inputElement);
+					focusNextInput(inputElement);
+				} else {
+					animateFailure(inputElement);
+				}
+				if (showPercentagePerTry || showPercentageAtEnd) {
+					percentages[countryCode] = result.percent;
+					if (showPercentagePerTry) {
+						showPercentage(inputElement, result.percent);
+					}
+				}
+			}
+		}
+	}
+
+	function focusNextInput(currentInput: HTMLInputElement) {
+		const inputs = Array.from(
+			document.querySelectorAll('.country-input')
+		) as HTMLInputElement[];
+
+		const enabledInputs = inputs.filter((input) => !input.disabled && input.tabIndex !== -1);
+
+		if (enabledInputs.length === 0) {
+			stopGame();
+			return;
+		}
+		const currentIndex = inputs.indexOf(currentInput);
+
+		for (let i = 1; i <= inputs.length; i++) {
+			const nextIndex = (currentIndex + i) % inputs.length;
+			const nextInput = inputs[nextIndex];
+
+			if (!nextInput.disabled && nextInput.tabIndex !== -1) {
+				nextInput.focus();
+				return;
+			}
+		}
+
+		stopGame();
+	}
+
+	function animateSuccess(element: HTMLInputElement) {
+		if (playSoundEffects) {
+			effectSounds.play('success');
+		}
+		element.parentElement!.classList.remove('failure');
+		element.parentElement!.classList.add('success');
+	}
+
+	function animateFailure(element: HTMLInputElement) {
+		if (playSoundEffects) {
+			effectSounds.play('failature');
+		}
+		element.parentElement!.classList.remove('success');
+		element.parentElement!.classList.add('failure');
+		setTimeout(() => element.parentElement!.classList.remove('failure'), 500);
+	}
+
+	function showPercentage(element: HTMLInputElement, percent: string) {
+		const percentageElement = element.parentElement!.querySelector(
+			'.percentage'
+		) as HTMLDivElement;
+		percentageElement.textContent = percent;
+		percentageElement.style.visibility = 'visible';
+	}
+
+	function handleCategoryChange() {
+		restartGame();
+	}
+</script>
+
+<div>
+	{#if isLoading}
+		<Spinner isDiv={false} />
+	{:else}
+		<div class="game-buttons">
+			<button id="start-button" on:click={startGame} disabled={!isStartEnabled}
+				>{$t('buttons.start')}</button>
+			<button on:click={stopGame} disabled={!isStopEnabled}>{$t('buttons.stop')}</button>
+			<button on:click={restartGame}>{$t('buttons.restart')}</button>
+		</div>
+
+		<div class="controls">
+			<label for="category">{$t('subtitle.categories')}:</label>
+			<select
+				id="category"
+				bind:value={selectedCategory}
+				on:change={handleCategoryChange}
+				class="game-control">
+				<option value="All"
+					>{$t('categories.all')} [{Object.keys(countries).length}]</option>
+				{#each Object.entries(categories) as [categoryGroup, subcategories]}
+					<optgroup label={$t(`categories.${categoryGroup}.name`)}>
+						{#each Object.keys(subcategories) as subcategory}
+							<option value={subcategory}
+								>{$t(`categories.${categoryGroup}.${subcategory}`)} [{Object.values(
+									categories
+								).flatMap((cat) => cat[subcategory] || []).length}]</option>
+						{/each}
+					</optgroup>
+				{/each}
+			</select>
+
+			<label for="mode">{$t('subtitle.mode')}:</label>
+			<select id="mode" bind:value={mode} class="game-control">
+				<option value="Classic">{$t('mode.classic')}</option>
+				<option value="Timer">{$t('mode.timer')}</option>
+			</select>
+
+			{#if mode === 'Timer'}
+				<label for="time">{$t('subtitle.time')}:</label>
+				<select id="time" bind:value={timeLimit} class="game-control">
+					<option value={1 * 60}>1m</option>
+					<option value={5 * 60}>5m</option>
+					<option value={10 * 60}>10m</option>
+					<option value={15 * 60}>15m</option>
+					<option value={30 * 60}>30m</option>
+					<option value={60 * 60}>1h</option>
+				</select>
+			{/if}
+		</div>
+
+		<div class="options">
+			<label class="option">
+				<input type="checkbox" bind:checked={showPercentagePerTry} class="game-control" />
+				{$t('options.try-percent')}
+			</label>
+			<label class="option">
+				<input type="checkbox" bind:checked={showPercentageAtEnd} class="game-control" />
+				{$t('options.end-percent')}
+			</label>
+			<label class="option">
+				<input type="checkbox" bind:checked={showAnswersAtEnd} class="game-control" />
+				{$t('options.end-name')}
+			</label>
+			<label class="option">
+				<input type="checkbox" bind:checked={playSoundEffects} class="game-control" />
+				{$t('options.sounds')}
+			</label>
+		</div>
+
+		<div class="flag-grid">
+			{#each filteredCountries as countryCode}
+				<div
+					class="flag-box"
+					class:success={guessedCountries.includes(countryCode)}
+					class:failure={false}>
+					<div class="flag-container">
+						<img src={`/flags/${countryCode}.svg`} alt={countryCode} class="flag" />
+					</div>
+					<input
+						type="text"
+						class="country-input"
+						on:keydown={(e) => checkAnswer(e, countryCode)}
+						disabled={!gameStarted}
+						data-country-code={countryCode} />
+					<div class="percentage" style="visibility: hidden;"></div>
+				</div>
+			{/each}
+		</div>
+
+		<div class="info-card timer-card">
+			<div class="timer">
+				{#if mode === 'Timer' && !gameStarted}
+					{formatTime(timeLimit)}
+				{:else}
+					{formatTime(actualTime)}
+				{/if}
+			</div>
+		</div>
+
+		<div class="info-card score-card">
+			<div class="game-info">
+				<strong>{guessedCountries.length}/{filteredCountries.length}</strong>
+			</div>
+		</div>
+	{/if}
+</div>
+
+<style>
+	.game-buttons {
+		display: flex;
+		justify-content: center;
+		gap: 10px;
+		margin-bottom: 20px;
+	}
+
+	.controls,
+	.options {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: 20px;
+	}
+
+	.controls select,
+	.game-buttons button {
+		padding: 5px 10px;
+		font-size: 1em;
+	}
+
+	.game-buttons button,
+	.controls select,
+	.country-input,
+	.option input {
+		background-color: #4a4a4a;
+		color: #ffffff;
+		border-color: #666666;
+		transition: all 0.3s ease;
+	}
+
+	.game-buttons button:not(:disabled),
+	.controls select:not(:disabled),
+	.country-input:not(:disabled),
+	.option input:not(:disabled) {
+		background-color: #5a5a5a;
+		cursor: pointer;
+	}
+
+	.game-buttons button:not(:disabled):hover,
+	.controls select:not(:disabled):hover,
+	.country-input:not(:disabled):hover,
+	.option input:not(:disabled):hover {
+		background-color: #6a6a6a;
+	}
+
+	.game-buttons button:disabled,
+	.controls select:disabled,
+	.country-input:disabled,
+	.option input:disabled {
+		background-color: #3a3a3a;
+		color: #888888;
+		cursor: not-allowed;
+		opacity: 0.7;
+	}
+
+	.game-buttons button:hover,
+	.controls select:hover,
+	.option input:hover {
+		background-color: #4a4a4a;
+	}
+
+	.options label {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+	}
+
+	.flag-grid {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+		justify-content: center;
+	}
+
+	.flag-box {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 10px;
+		border: 1px solid #555555;
+		border-radius: 5px;
+		transition: all 0.3s ease;
+		width: 100%;
+		max-width: 200px;
+		background-color: #3a3a3a;
+	}
+
+	.flag-box:focus-within {
+		background-color: #4a4a4a;
+		border-color: #777777;
+	}
+
+	.flag-container {
+		width: 150px;
+		height: 90px;
+		margin-bottom: 10px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		overflow: hidden;
+	}
+
+	.flag {
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
+	}
+
+	.country-input {
+		width: 100%;
+		padding: 5px;
+		text-align: center;
+		border: 1px solid #b6b6b6;
+		border-radius: 3px;
+		margin-bottom: 5px;
+	}
+
+	.country-input:focus {
+		outline: none;
+	}
+
+	.flag-box.success {
+		background-color: #2a5a2a;
+		border-color: #3a6a3a;
+		animation: success-animation 0.5s ease;
+	}
+
+	@keyframes success-animation {
+		0% {
+			background-color: #3a3a3a;
+		}
+		50% {
+			background-color: #2a5a2a;
+		}
+		100% {
+			background-color: #2a5a2a;
+		}
+	}
+
+	.flag-box.failure {
+		background-color: #5a2a2a;
+		border-color: #6a3a3a;
+		animation: failure-animation 0.1s ease;
+	}
+
+	@keyframes failure-animation {
+		0% {
+			background-color: #3a3a3a;
+		}
+		25% {
+			background-color: #5a2a2a;
+		}
+		75% {
+			background-color: #5a2a2a;
+		}
+		100% {
+			background-color: #5a2a2a;
+		}
+	}
+
+	.percentage {
+		font-size: 0.8em;
+		margin-top: 5px;
+		height: 1em;
+	}
+
+	.options label {
+		color: #e0e0e0;
+	}
+
+	.info-card {
+		position: fixed;
+		bottom: 10px;
+		background-color: rgba(58, 58, 58, 0.8);
+		padding: 10px 15px;
+		border-radius: 8px;
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+		transition: opacity 0.3s ease;
+		z-index: 1000;
+	}
+
+	.info-card:hover {
+		opacity: 1;
+	}
+
+	.timer-card {
+		left: 10px;
+	}
+
+	.score-card {
+		right: 10px;
+	}
+
+	.timer,
+	.game-info {
+		color: #ffffff;
+		font-size: 1.2em;
+		font-weight: bold;
+	}
+</style>

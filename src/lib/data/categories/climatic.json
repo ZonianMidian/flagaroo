@@ -1,0 +1,12 @@
+{
+	"alpine": ["ch", "at", "np", "cl", "pe"],
+	"arid": ["sa", "ae", "eg", "ly", "ma", "dz", "na", "cl", "pe", "au"],
+	"continental": ["us", "ca", "ru", "de", "pl", "ua", "kz", "mn", "cn"],
+	"mediterranean": ["es", "it", "gr", "tr", "hr", "pt", "cy", "lb", "il", "za"],
+	"oceanic": ["gb", "ie", "nl", "be", "nz", "jp", "fr"],
+	"polar": ["gl", "is", "no", "fi", "se", "aq"],
+	"subarctic": ["ca", "ru", "is", "se", "fi"],
+	"subtropical": ["mx", "ar", "za", "au", "cn", "us"],
+	"temperate": ["de", "fr", "gb", "jp", "nz", "ar"],
+	"tropical": ["br", "th", "id", "my", "ph", "vn", "co", "pe", "ve", "ec", "ng", "ke"]
+}
