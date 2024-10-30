@@ -251,11 +251,11 @@
 	}
 
 	function checkAnswer(event: KeyboardEvent, countryCode: string) {
-		if (event.key === 'Enter' && gameStarted) {
+		if ((event.key === 'Enter' || event.key === 'Tab') && gameStarted) {
 			const inputElement = event.target as HTMLInputElement;
 			const inputValue = inputElement.value;
 			const country = countries[countryCode];
-			if (country) {
+			if (country && inputValue) {
 				const result = checkMatch(country, currentLang, inputValue);
 
 				if (result.success) {
@@ -263,7 +263,9 @@
 					inputElement.disabled = true;
 					inputElement.value = country.name[currentLang] || '';
 					animateSuccess(inputElement);
-					focusNextInput(inputElement);
+					if (event.key !== 'Tab') {
+						focusNextInput(inputElement);
+					}
 				} else {
 					animateFailure(inputElement);
 				}
@@ -410,7 +412,11 @@
 					class:success={guessedCountries.includes(countryCode)}
 					class:failure={false}>
 					<div class="flag-container">
-						<img src={`/flags/${countryCode}.svg`} alt={countryCode} loading="lazy" class="flag" />
+						<img
+							src={`/flags/${countryCode}.svg`}
+							alt={countryCode}
+							loading="lazy"
+							class="flag" />
 					</div>
 					<input
 						type="text"
