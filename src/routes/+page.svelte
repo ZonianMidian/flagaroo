@@ -36,6 +36,7 @@
 	let showPercentageAtEnd: boolean = false;
 	let showAnswersAtEnd: boolean = false;
 	let playSoundEffects: boolean = true;
+	let effectsVolume: number = 0.1;
 
 	async function loadLanguage() {
 		currentLang = getLocaleFromNavigator()?.slice(0, 2) ?? 'en';
@@ -127,9 +128,9 @@
 
 		if (playSoundEffects) {
 			if (guessedCountries.length === filteredCountries.length) {
-				effectSounds.play('win');
+				effectSounds.play('win', { volume: effectsVolume });
 			} else if (mode === 'Timer') {
-				effectSounds.play('lose');
+				effectSounds.play('lose', { volume: effectsVolume });
 			}
 		}
 	}
@@ -298,7 +299,7 @@
 
 	function animateSuccess(element: HTMLInputElement) {
 		if (playSoundEffects) {
-			effectSounds.play('success');
+			effectSounds.play('success', { volume: effectsVolume });
 		}
 		element.parentElement!.classList.remove('failure');
 		element.parentElement!.classList.add('success');
@@ -306,7 +307,7 @@
 
 	function animateFailure(element: HTMLInputElement) {
 		if (playSoundEffects) {
-			effectSounds.play('failature');
+			effectSounds.play('failature', { volume: effectsVolume });
 		}
 		element.parentElement!.classList.remove('success');
 		element.parentElement!.classList.add('failure');
