@@ -1,9 +1,20 @@
 {
+	"gs": {
+		"alt": [
+			"Islas Georgias del Sur",
+			"Islas Sandwich del Sur",
+			"South Georgia Islands",
+			"South Sandwich Islands"
+		]
+	},
 	"us": {
 		"name": [{ "key": "en", "value": "United States of America" }]
 	},
 	"bh": {
 		"name": [{ "key": "es", "value": "Baréin" }]
+	},
+	"sx": {
+		"name": [{ "ket": "es", "value": "San Martín" }]
 	},
 	"gv": {
 		"code": "gn"

@@ -32,8 +32,11 @@ for (const country of countries) {
 		}
 	});
 
-	const alt = getAltCountryName(country);
-	if (alt) {
+	let alt = getAltCountryName(country) ?? [];
+	if (patches[countryCode]?.alt) {
+		alt = [...patches[countryCode].alt, ...alt];
+	}
+	if (alt.length > 0) {
 		data.alt = [...data.alt, ...alt];
 	}
 
