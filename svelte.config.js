@@ -12,8 +12,10 @@ const config = {
 		}),
 		alias: {
 			$data: resolve('./src/lib/data'),
+			$types: resolve('./src/lib/types'),
 			$utils: resolve('./src/lib/utils'),
 			$locales: resolve('./src/locales'),
+			$stores: resolve('./src/lib/stores'),
 			$components: resolve('./src/components')
 		}
 	}

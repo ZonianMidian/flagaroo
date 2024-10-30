@@ -1,8 +1,4 @@
-<script lang="ts">
-	export let isDiv: Boolean;
-</script>
-
-<div class="loading" class:loading-div={isDiv}>
+<div class="loading">
 	<div class="spinner"></div>
 </div>
 
@@ -29,10 +25,6 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		height: 100vh;
-	}
-
-	.loading-div {
-		height: 100% !important;
+		height: 70vh;
 	}
 </style>

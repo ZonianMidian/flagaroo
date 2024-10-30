@@ -1,31 +1,24 @@
 <script lang="ts">
+	import { checkMatch, formatTime, loadCountryData } from '$utils/utils';
+	import { countriesStore, categoriesStore } from '$stores/store';
 	import { getLocaleFromNavigator, t } from 'svelte-i18n';
-	import { checkMatch, formatTime } from '$utils/utils';
 	import { effectSounds } from '$utils/soundEffects';
 	import Spinner from '$components/Spinner.svelte';
+	import type { LanguageData } from '$types';
 	import { onMount } from 'svelte';
 	import '../app.css';
 
-	type LanguageData = {
-		[key: string]: string;
-	};
+	export let data;
+	const allFlags = data.allFlags;
 
-	type CountryData = {
-		name: { [key: string]: string };
-		alt: string[];
-	};
+	$: {
+		$categoriesStore = data.categories;
+	}
 
-	type Category = {
-		[key: string]: string[];
-	};
-
-	let categories: Record<string, Category> = {};
-	let countries: Record<string, CountryData> = {};
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let actualTime: number = 0;
 	let timeLimit: number = 60;
 	let guessedCountries: string[] = [];
-	let totalCountries: number = 0;
 	let languageData: LanguageData = {};
 	let currentLang: string = 'en';
 	let gameStarted: boolean = false;
@@ -43,26 +36,6 @@
 	let showPercentageAtEnd: boolean = false;
 	let showAnswersAtEnd: boolean = false;
 	let playSoundEffects: boolean = true;
-
-	async function loadCategoriesAndCountries() {
-		const categoriesFiles = import.meta.glob<{ default: Category }>('$data/categories/*.json');
-		for (const path in categoriesFiles) {
-			const module = await categoriesFiles[path]();
-			const categoryName = path.split('/').pop()?.replace('.json', '') || '';
-			categories[categoryName] = module.default;
-		}
-
-		const countriesFiles = import.meta.glob<{ default: CountryData }>('$data/names/*.json');
-		for (const path in countriesFiles) {
-			const module = await countriesFiles[path]();
-			const countryCode = path.split('/').pop()?.replace('.json', '') || '';
-			countries[countryCode] = module.default;
-		}
-
-		totalCountries = Object.keys(countries).length;
-		shuffleCountries();
-		isLoading = false;
-	}
 
 	async function loadLanguage() {
 		currentLang = getLocaleFromNavigator() ?? 'en';
@@ -87,9 +60,12 @@
 	}
 
 	onMount(() => {
-		loadCategoriesAndCountries();
-		effectSounds.preload();
-		loadLanguage();
+		(async () => {
+			effectSounds.preload();
+			await loadLanguage();
+			shuffleCountries();
+			isLoading = false;
+		})();
 
 		window.addEventListener('keydown', handleKeyDown);
 
@@ -101,8 +77,8 @@
 	function shuffleCountries() {
 		filteredCountries =
 			selectedCategory === 'All'
-				? Object.keys(countries)
-				: Object.values(categories).flatMap((cat) => cat[selectedCategory] || []);
+				? allFlags
+				: Object.values($categoriesStore).flatMap((cat) => cat[selectedCategory] || []);
 		filteredCountries = filteredCountries.sort(() => Math.random() - 0.5);
 	}
 
@@ -170,10 +146,8 @@
 
 		if (gameStarted) {
 			endGame();
-
 			clearAllInputs();
 			shuffleCountries();
-
 			startGame();
 		} else {
 			gameStarted = false;
@@ -210,15 +184,21 @@
 		});
 	}
 
-	function revealAllCountries() {
+	async function revealAllCountries() {
 		const inputs = document.querySelectorAll('.country-input') as NodeListOf<HTMLInputElement>;
-		inputs.forEach((input) => {
+		for (const input of inputs) {
 			const countryCode = input.getAttribute('data-country-code');
-			if (countryCode && countries[countryCode]) {
-				input.value = countries[countryCode].name[currentLang] || '';
+			if (countryCode && !$countriesStore[countryCode]) {
+				const countryData = await loadCountryData(countryCode);
+				if (countryData) {
+					$countriesStore = { ...$countriesStore, [countryCode]: countryData };
+				}
+			}
+			if (countryCode && $countriesStore[countryCode]) {
+				input.value = $countriesStore[countryCode].name[currentLang] || '';
 				input.disabled = true;
 			}
-		});
+		}
 	}
 
 	function showAllPercentages() {
@@ -250,11 +230,22 @@
 		});
 	}
 
-	function checkAnswer(event: KeyboardEvent, countryCode: string) {
+	async function checkAnswer(event: KeyboardEvent, countryCode: string) {
 		if ((event.key === 'Enter' || event.key === 'Tab') && gameStarted) {
 			const inputElement = event.target as HTMLInputElement;
 			const inputValue = inputElement.value;
-			const country = countries[countryCode];
+
+			if (!$countriesStore[countryCode]) {
+				const countryData = await loadCountryData(countryCode);
+				if (countryData) {
+					$countriesStore = { ...$countriesStore, [countryCode]: countryData };
+				} else {
+					console.error(`Failed to load data for ${countryCode}`);
+					return;
+				}
+			}
+
+			const country = $countriesStore[countryCode];
 			if (country && inputValue) {
 				const result = checkMatch(country, currentLang, inputValue);
 
@@ -337,7 +328,7 @@
 
 <div>
 	{#if isLoading}
-		<Spinner isDiv={false} />
+		<Spinner />
 	{:else}
 		<div class="game-buttons">
 			<button id="start-button" on:click={startGame} disabled={!isStartEnabled}
@@ -353,14 +344,13 @@
 				bind:value={selectedCategory}
 				on:change={handleCategoryChange}
 				class="game-control">
-				<option value="All"
-					>{$t('categories.all')} [{Object.keys(countries).length}]</option>
-				{#each Object.entries(categories) as [categoryGroup, subcategories]}
+				<option value="All">{$t('categories.all')} [{allFlags.length}]</option>
+				{#each Object.entries($categoriesStore) as [categoryGroup, subcategories]}
 					<optgroup label={$t(`categories.${categoryGroup}.name`)}>
 						{#each Object.keys(subcategories) as subcategory}
 							<option value={subcategory}
 								>{$t(`categories.${categoryGroup}.${subcategory}`)} [{Object.values(
-									categories
+									$categoriesStore
 								).flatMap((cat) => cat[subcategory] || []).length}]</option>
 						{/each}
 					</optgroup>
@@ -427,6 +417,16 @@
 					<div class="percentage" style="visibility: hidden;"></div>
 				</div>
 			{/each}
+		</div>
+
+		<div class="info-card timer-card">
+			<div class="timer">
+				{#if mode === 'Timer' && !gameStarted}
+					{formatTime(timeLimit)}
+				{:else}
+					{formatTime(actualTime)}
+				{/if}
+			</div>
 		</div>
 
 		<div class="info-card timer-card">

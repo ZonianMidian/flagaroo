@@ -1,3 +1,16 @@
+import type { CountryData } from '$types';
+
+export async function loadCountryData(countryCode: string): Promise<CountryData | null> {
+	try {
+		const response = await fetch(`/api/names/${countryCode}`);
+		if (!response.ok) throw new Error('Failed to load country data');
+		return await response.json();
+	} catch (error) {
+		console.error(`Error loading data for ${countryCode}:`, error);
+		return null;
+	}
+}
+
 function normalizeText(text: string): string {
 	return text
 		.normalize('NFD')
