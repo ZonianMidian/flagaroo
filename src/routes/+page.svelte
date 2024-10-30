@@ -38,7 +38,7 @@
 	let playSoundEffects: boolean = true;
 
 	async function loadLanguage() {
-		currentLang = getLocaleFromNavigator() ?? 'en';
+		currentLang = getLocaleFromNavigator()?.slice(0, 2) ?? 'en';
 		const langFile = await import(`$data/languages/${currentLang}.json`);
 		languageData = langFile.default;
 	}
