@@ -367,7 +367,7 @@
 			{#if mode === 'Timer'}
 				<label for="time">{$t('subtitle.time')}:</label>
 				<select id="time" bind:value={timeLimit} class="game-control">
-					<option value={3}>3s</option>
+					<option value={30}>30s</option>
 					<option value={1 * 60}>1m</option>
 					<option value={5 * 60}>5m</option>
 					<option value={10 * 60}>10m</option>
