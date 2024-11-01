@@ -313,7 +313,7 @@
 			stopGame();
 			return;
 		}
-		
+
 		const currentIndex = currentInput ? inputs.indexOf(currentInput) : -1;
 
 		for (let i = 1; i <= inputs.length; i++) {
@@ -363,6 +363,11 @@
 		element.parentElement!.classList.add('revealed');
 
 		revealName(countryCode);
+
+		const input = element.parentElement?.querySelector('.country-input');
+		if (input) {
+			focusNextInput(input as HTMLInputElement);
+		}
 	}
 
 	function showPercentage(element: HTMLInputElement, percent: string) {
@@ -471,7 +476,7 @@
 						👁
 					</button>
 					<input
-						tabindex={index+1}
+						tabindex={index + 1}
 						type="text"
 						class="country-input"
 						on:keydown={(e) => checkAnswer(e, countryCode)}
