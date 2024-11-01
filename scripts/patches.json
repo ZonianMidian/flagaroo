@@ -14,7 +14,10 @@
 		"name": [{ "key": "es", "value": "Baréin" }]
 	},
 	"sx": {
-		"name": [{ "ket": "es", "value": "San Martín" }]
+		"name": [{ "key": "es", "value": "San Martín" }]
+	},
+	"gw": {
+		"name": [{ "key": "es", "value": "Guinea-Bisáu" }]
 	},
 	"gv": {
 		"code": "gn"
