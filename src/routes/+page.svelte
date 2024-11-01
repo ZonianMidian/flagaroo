@@ -107,6 +107,8 @@
 		isStopEnabled = true;
 		isStartEnabled = false;
 
+		effectSounds.play('start', { volume: effectsVolume });
+
 		if (mode === 'Timer') {
 			const selectElement = document.getElementById('time') as HTMLSelectElement;
 			timeLimit = +selectElement?.value || 0;
@@ -157,6 +159,8 @@
 				effectSounds.play('win', { volume: effectsVolume });
 			} else if (mode === 'Timer') {
 				effectSounds.play('lose', { volume: effectsVolume });
+			} else {
+				setTimeout(() => effectSounds.play('end', { volume: effectsVolume }), 100);
 			}
 		}
 	}
@@ -178,6 +182,8 @@
 		guessedCountries = [];
 		percentages = {};
 		actualTime = 0;
+
+		effectSounds.play('restart', { volume: effectsVolume });
 
 		if (gameStarted) {
 			endGame();
