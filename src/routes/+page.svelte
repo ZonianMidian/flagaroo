@@ -2,9 +2,10 @@
 	import { checkMatch, formatTime, loadCountryData } from '$utils/utils';
 	import { countriesStore, categoriesStore } from '$stores/store';
 	import { getLocaleFromNavigator, t } from 'svelte-i18n';
+	import type { LanguageData, UmamiEvent } from '$types';
 	import { effectSounds } from '$utils/soundEffects';
 	import Spinner from '$components/Spinner.svelte';
-	import type { LanguageData } from '$types';
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import '../app.css';
 
@@ -37,6 +38,12 @@
 	let showAnswersAtEnd: boolean = false;
 	let playSoundEffects: boolean = true;
 	let effectsVolume: number = 0.1;
+
+	//Umami
+	let umami: any;
+	if (browser) {
+		umami = (window as any)?.umami;
+	}
 
 	async function loadLanguage() {
 		currentLang = getLocaleFromNavigator()?.slice(0, 2) ?? 'en';
@@ -84,6 +91,18 @@
 	}
 
 	function startGame() {
+		if (umami) {
+			const eventData: UmamiEvent = {
+				mode,
+				percentTry: showPercentagePerTry,
+				percentEnd: showPercentageAtEnd,
+				answersEnd: showAnswersAtEnd,
+				soundEffects: playSoundEffects
+			};
+			if (mode === 'Timer') eventData.time = timeLimit;
+			umami.track('start', eventData);
+		}
+
 		gameStarted = true;
 		isStopEnabled = true;
 		isStartEnabled = false;
@@ -118,6 +137,12 @@
 	}
 
 	function endGame() {
+		if (umami) {
+			umami.track('end', {
+				result: `${guessedCountries.length}/${filteredCountries.length}`
+			});
+		}
+
 		gameStarted = false;
 		isStopEnabled = false;
 		isStartEnabled = false;
@@ -137,11 +162,19 @@
 	}
 
 	function stopGame() {
+		if (umami) {
+			umami.track('stop');
+		}
+
 		endGame();
 		disableStartButton(true);
 	}
 
 	function restartGame() {
+		if (umami) {
+			umami.track('restart');
+		}
+
 		guessedCountries = [];
 		percentages = {};
 		actualTime = 0;

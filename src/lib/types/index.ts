@@ -10,3 +10,12 @@ export type Category = {
 export type LanguageData = {
 	[key: string]: string;
 };
+
+export type UmamiEvent = {
+	mode: string;
+	time?: number;
+	percentTry: boolean;
+	percentEnd: boolean;
+	answersEnd: boolean;
+	soundEffects: boolean;
+};
