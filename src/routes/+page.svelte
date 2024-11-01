@@ -121,7 +121,7 @@
 		isStopEnabled = false;
 		isStartEnabled = false;
 		if (timer) clearInterval(timer);
-		if (showAnswersAtEnd) revealAllCountries();
+		if (showAnswersAtEnd) revealAllNames();
 		if (showPercentageAtEnd) showAllPercentages();
 		disableControls(false);
 		disableStartButton(true);
@@ -183,22 +183,47 @@
 		inputs.forEach((input) => {
 			input.disabled = false;
 		});
+
+		const buttons = document.querySelectorAll(
+			'.country-reveal'
+		) as NodeListOf<HTMLInputElement>;
+		buttons.forEach((button) => {
+			button.disabled = false;
+		});
 	}
 
-	async function revealAllCountries() {
+	async function revealAllNames() {
 		const inputs = document.querySelectorAll('.country-input') as NodeListOf<HTMLInputElement>;
 		for (const input of inputs) {
 			const countryCode = input.getAttribute('data-country-code');
-			if (countryCode && !$countriesStore[countryCode]) {
-				const countryData = await loadCountryData(countryCode);
-				if (countryData) {
-					$countriesStore = { ...$countriesStore, [countryCode]: countryData };
-				}
+			if (countryCode) {
+				await revealName(countryCode);
 			}
-			if (countryCode && $countriesStore[countryCode]) {
-				input.value = $countriesStore[countryCode].name[currentLang] || '';
-				input.disabled = true;
+		}
+	}
+
+	async function revealName(countryCode: string) {
+		const input = document.querySelector(
+			`.country-input[data-country-code="${countryCode}"]`
+		) as HTMLInputElement | null;
+		if (!input) return;
+
+		if (!$countriesStore[countryCode]) {
+			const countryData = await loadCountryData(countryCode);
+			if (countryData) {
+				$countriesStore = { ...$countriesStore, [countryCode]: countryData };
 			}
+		}
+
+		if ($countriesStore[countryCode]) {
+			input.value = $countriesStore[countryCode].name[currentLang] || '';
+			input.disabled = true;
+
+			const button = document.querySelector(
+				`.country-reveal[data-country-code="${countryCode}"]`
+			) as HTMLInputElement;
+
+			button.disabled = true;
 		}
 	}
 
@@ -222,7 +247,7 @@
 		inputs.forEach((input) => {
 			input.value = '';
 			input.disabled = true;
-			input.parentElement!.classList.remove('success', 'failure');
+			input.parentElement!.classList.remove('success', 'failure', 'revealed');
 		});
 		const percentages = document.querySelectorAll('.percentage') as NodeListOf<HTMLDivElement>;
 		percentages.forEach((percentage) => {
@@ -254,7 +279,7 @@
 					guessedCountries = [...guessedCountries, countryCode];
 					inputElement.disabled = true;
 					inputElement.value = country.name[currentLang] || '';
-					animateSuccess(inputElement);
+					animateSuccess(inputElement, countryCode);
 					if (event.key !== 'Tab') {
 						focusNextInput(inputElement);
 					}
@@ -297,21 +322,40 @@
 		stopGame();
 	}
 
-	function animateSuccess(element: HTMLInputElement) {
+	function animateSuccess(element: HTMLInputElement, countryCode: string) {
 		if (playSoundEffects) {
 			effectSounds.play('success', { volume: effectsVolume });
 		}
+		element.parentElement!.classList.remove('revealed');
 		element.parentElement!.classList.remove('failure');
 		element.parentElement!.classList.add('success');
+
+		const button = document.querySelector(
+			`.country-reveal[data-country-code="${countryCode}"]`
+		) as HTMLInputElement;
+
+		button.disabled = true;
 	}
 
 	function animateFailure(element: HTMLInputElement) {
 		if (playSoundEffects) {
 			effectSounds.play('failature', { volume: effectsVolume });
 		}
+		element.parentElement!.classList.remove('revealed');
 		element.parentElement!.classList.remove('success');
 		element.parentElement!.classList.add('failure');
 		setTimeout(() => element.parentElement!.classList.remove('failure'), 500);
+	}
+
+	function animateRevealed(element: HTMLButtonElement, countryCode: string) {
+		if (playSoundEffects) {
+			effectSounds.play('revealed', { volume: effectsVolume });
+		}
+		element.parentElement!.classList.remove('failure');
+		element.parentElement!.classList.remove('success');
+		element.parentElement!.classList.add('revealed');
+
+		revealName(countryCode);
 	}
 
 	function showPercentage(element: HTMLInputElement, percent: string) {
@@ -402,7 +446,8 @@
 				<div
 					class="flag-box"
 					class:success={guessedCountries.includes(countryCode)}
-					class:failure={false}>
+					class:failure={false}
+					class:revealed={false}>
 					<div class="flag-container">
 						<img
 							src={`/flags/${countryCode}.svg`}
@@ -410,6 +455,13 @@
 							loading="lazy"
 							class="flag" />
 					</div>
+					<button
+						class="country-reveal"
+						on:click={(e) => animateRevealed(e.currentTarget, countryCode)}
+						disabled={!gameStarted}
+						data-country-code={countryCode}>
+						👁
+					</button>
 					<input
 						type="text"
 						class="country-input"
@@ -548,7 +600,6 @@
 	.flag-container {
 		width: 150px;
 		height: 90px;
-		margin-bottom: 10px;
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -559,6 +610,22 @@
 		max-width: 100%;
 		max-height: 100%;
 		object-fit: contain;
+	}
+
+	.country-reveal {
+		border-style: hidden;
+		background-color: transparent;
+		cursor: pointer;
+		color: #6a6a6a;
+	}
+
+	.country-reveal:hover {
+		color: #fff;
+	}
+
+	.country-reveal:disabled {
+		color: transparent;
+		cursor: auto;
 	}
 
 	.country-input {
@@ -610,6 +677,24 @@
 		}
 		100% {
 			background-color: #5a2a2a;
+		}
+	}
+
+	.flag-box.revealed {
+		background-color: #a65a2a;
+		border-color: #b36a3a;
+		animation: revealed-animation 0.5s ease;
+	}
+
+	@keyframes revealed-animation {
+		0% {
+			background-color: #7a4a2a;
+		}
+		50% {
+			background-color: #a65a2a;
+		}
+		100% {
+			background-color: #a65a2a;
 		}
 	}
 
