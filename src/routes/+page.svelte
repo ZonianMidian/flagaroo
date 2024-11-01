@@ -98,6 +98,7 @@
 
 		disableControls(true);
 		enableAllInputs();
+		focusNextInput();
 	}
 
 	function startTimer(time: number) {
@@ -261,6 +262,11 @@
 			const inputElement = event.target as HTMLInputElement;
 			const inputValue = inputElement.value;
 
+			if (event.key === 'Tab') {
+				event.preventDefault();
+				focusNextInput(inputElement);
+			}
+
 			if (!$countriesStore[countryCode]) {
 				const countryData = await loadCountryData(countryCode);
 				if (countryData) {
@@ -280,7 +286,7 @@
 					inputElement.disabled = true;
 					inputElement.value = country.name[currentLang] || '';
 					animateSuccess(inputElement, countryCode);
-					if (event.key !== 'Tab') {
+					if (event.key === 'Enter') {
 						focusNextInput(inputElement);
 					}
 				} else {
@@ -296,7 +302,7 @@
 		}
 	}
 
-	function focusNextInput(currentInput: HTMLInputElement) {
+	function focusNextInput(currentInput?: HTMLInputElement) {
 		const inputs = Array.from(
 			document.querySelectorAll('.country-input')
 		) as HTMLInputElement[];
@@ -307,7 +313,8 @@
 			stopGame();
 			return;
 		}
-		const currentIndex = inputs.indexOf(currentInput);
+		
+		const currentIndex = currentInput ? inputs.indexOf(currentInput) : -1;
 
 		for (let i = 1; i <= inputs.length; i++) {
 			const nextIndex = (currentIndex + i) % inputs.length;
@@ -442,7 +449,7 @@
 		</div>
 
 		<div class="flag-grid">
-			{#each filteredCountries as countryCode}
+			{#each filteredCountries as countryCode, index}
 				<div
 					class="flag-box"
 					class:success={guessedCountries.includes(countryCode)}
@@ -456,6 +463,7 @@
 							class="flag" />
 					</div>
 					<button
+						tabindex="-1"
 						class="country-reveal"
 						on:click={(e) => animateRevealed(e.currentTarget, countryCode)}
 						disabled={!gameStarted}
@@ -463,6 +471,7 @@
 						👁
 					</button>
 					<input
+						tabindex={index+1}
 						type="text"
 						class="country-input"
 						on:keydown={(e) => checkAnswer(e, countryCode)}
