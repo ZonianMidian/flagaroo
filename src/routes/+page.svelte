@@ -6,6 +6,7 @@
 	import { effectSounds } from '$utils/soundEffects';
 	import Spinner from '$components/Spinner.svelte';
 	import { browser } from '$app/environment';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import '../app.css';
 
@@ -422,13 +423,24 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Flagaroo</title>
+	<meta property="og:title" content="Flagaroo" />
+
+	<meta property="og:url" content={$page.url.origin} />
+	<link rel="canonical" href={$page.url.origin} />
+
+	<meta property="og:image" content={$page.url.origin + '/Flagaroo.png'} />
+</svelte:head>
+
 <div>
 	{#if isLoading}
 		<Spinner />
 	{:else}
 		<div class="game-buttons">
 			<button id="start-button" on:click={startGame} disabled={!isStartEnabled}
-				>{$t('buttons.start')}</button>
+				>{$t('buttons.start')}</button
+			>
 			<button on:click={stopGame} disabled={!isStopEnabled}>{$t('buttons.stop')}</button>
 			<button on:click={restartGame}>{$t('buttons.restart')}</button>
 		</div>
@@ -439,7 +451,8 @@
 				id="category"
 				bind:value={selectedCategory}
 				on:change={handleCategoryChange}
-				class="game-control">
+				class="game-control"
+			>
 				<option value="All">{$t('categories.all')} [{allFlags.length}]</option>
 				{#each Object.entries($categoriesStore) as [categoryGroup, subcategories]}
 					<optgroup label={$t(`categories.${categoryGroup}.name`)}>
@@ -447,7 +460,8 @@
 							<option value={subcategory}
 								>{$t(`categories.${categoryGroup}.${subcategory}`)} [{Object.values(
 									$categoriesStore
-								).flatMap((cat) => cat[subcategory] || []).length}]</option>
+								).flatMap((cat) => cat[subcategory] || []).length}]</option
+							>
 						{/each}
 					</optgroup>
 				{/each}
@@ -498,20 +512,23 @@
 					class="flag-box"
 					class:success={guessedCountries.includes(countryCode)}
 					class:failure={false}
-					class:revealed={false}>
+					class:revealed={false}
+				>
 					<div class="flag-container">
 						<img
 							src={`/flags/${countryCode}.svg`}
 							alt={countryCode}
 							loading="lazy"
-							class="flag" />
+							class="flag"
+						/>
 					</div>
 					<button
 						tabindex="-1"
 						class="country-reveal"
 						on:click={(e) => animateRevealed(e.currentTarget, countryCode)}
 						disabled={!gameStarted}
-						data-country-code={countryCode}>
+						data-country-code={countryCode}
+					>
 						👁
 					</button>
 					<input
@@ -520,7 +537,8 @@
 						class="country-input"
 						on:keydown={(e) => checkAnswer(e, countryCode)}
 						disabled={!gameStarted}
-						data-country-code={countryCode} />
+						data-country-code={countryCode}
+					/>
 					<div class="percentage" style="visibility: hidden;"></div>
 				</div>
 			{/each}
